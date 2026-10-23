@@ -3,12 +3,16 @@ import * as doacoes from './doacoes.js';
 
 export function criarApp() {
   const app = express();
+
   app.use(express.json());
   app.use(express.static('public'));
 
-  // Verificação de saúde: usada pelo CI para provar que a aplicação sobe.
-  app.get('/api/saude', (req, res) => res.json({ ok: true }));
+  // Verificação de saúde da aplicação
+  app.get('/api/saude', (req, res) => {
+    res.json({ ok: true });
+  });
 
+  // Listar doações disponíveis
   app.get('/api/doacoes', async (req, res) => {
     try {
       res.json(await doacoes.listarDisponiveis());
@@ -17,6 +21,7 @@ export function criarApp() {
     }
   });
 
+  // Cadastrar uma nova doação
   app.post('/api/doacoes', async (req, res) => {
     try {
       res.status(201).json(await doacoes.criarDoacao(req.body));
@@ -25,9 +30,24 @@ export function criarApp() {
     }
   });
 
+  // Aceitar uma doação
   app.post('/api/doacoes/:id/aceitar', async (req, res) => {
     try {
       res.json(await doacoes.aceitar(req.params.id, req.body?.ong ?? 'ONG'));
+    } catch (erro) {
+      res.status(400).json({ erro: erro.message });
+    }
+  });
+
+  // Confirmar a coleta de uma doação
+  app.post('/api/doacoes/:id/coletar', async (req, res) => {
+    try {
+      const doacaoColetada = await doacoes.coletar(
+        req.params.id,
+        req.body?.ong
+      );
+
+      res.json(doacaoColetada);
     } catch (erro) {
       res.status(400).json({ erro: erro.message });
     }
