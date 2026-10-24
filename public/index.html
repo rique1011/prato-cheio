@@ -1,77 +1,344 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prato Cheio</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; max-width: 40rem; }
-    h1 { font-size: 1.3rem; }
-    fieldset { border: 1px solid #ccc; border-radius: .5rem; margin-bottom: 1rem; }
-    label { display: block; margin: .5rem 0 .2rem; font-size: .9rem; }
-    input, button { font-size: 1rem; padding: .6rem; width: 100%; box-sizing: border-box; }
-    button { margin-top: .8rem; cursor: pointer; }
-    li { border: 1px solid #ddd; border-radius: .5rem; padding: .6rem; margin-bottom: .5rem; list-style: none; }
-    ul { padding: 0; }
-  </style>
-</head>
-<body>
-  <h1>Prato Cheio</h1>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prato Cheio — Doações de alimentos</title>
 
-  <fieldset>
-    <legend>Publicar doação</legend>
-    <label for="tipo">Tipo de alimento</label>
-    <input id="tipo" placeholder="Ex.: sopa, pão, frutas">
-    <label for="quantidade">Quantidade</label>
-    <input id="quantidade" placeholder="Ex.: 10 porções">
-    <label for="validade">Validade / retirar até</label>
-    <input id="validade" type="date">
-    <button id="publicar">Publicar</button>
-  </fieldset>
-
-  <h2>Doações disponíveis</h2>
-  <ul id="lista"></ul>
-
-  <script>
-    async function carregar() {
-      const res = await fetch('/api/doacoes');
-      const doacoes = await res.json();
-      const lista = document.getElementById('lista');
-      lista.innerHTML = doacoes.length
-        ? ''
-        : '<li>Nenhuma doação disponível.</li>';
-      for (const d of doacoes) {
-        const li = document.createElement('li');
-        li.textContent = `${d.tipo} — ${d.quantidade} (até ${d.validade}) `;
-        const botao = document.createElement('button');
-        botao.textContent = 'Aceitar';
-        botao.onclick = async () => {
-          await fetch(`/api/doacoes/${d.id}/aceitar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ong: 'Minha ONG' })
-          });
-          carregar();
-        };
-        li.appendChild(botao);
-        lista.appendChild(li);
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        color: #24352b;
+        background: #f4f7f2;
       }
-    }
 
-    document.getElementById('publicar').onclick = async () => {
-      await fetch('/api/doacoes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo: document.getElementById('tipo').value,
-          quantidade: document.getElementById('quantidade').value,
-          validade: document.getElementById('validade').value
-        })
+      body {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 1.5rem;
+      }
+
+      header {
+        margin-bottom: 1.5rem;
+      }
+
+      h1 {
+        color: #246b45;
+        margin-bottom: 0.25rem;
+      }
+
+      .descricao {
+        color: #53645a;
+        margin-top: 0;
+      }
+
+      fieldset,
+      .doacao {
+        background: white;
+        border: 1px solid #d7e2d9;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      legend {
+        font-weight: bold;
+        padding: 0 0.4rem;
+      }
+
+      label {
+        display: block;
+        margin: 0.75rem 0 0.25rem;
+        font-weight: 600;
+      }
+
+      input,
+      button {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 0.75rem;
+        border-radius: 8px;
+        font: inherit;
+      }
+
+      input {
+        border: 1px solid #b8c8bc;
+        background: white;
+      }
+
+      input:focus {
+        outline: 2px solid #39845a;
+        outline-offset: 1px;
+      }
+
+      button {
+        margin-top: 0.75rem;
+        border: 0;
+        background: #287647;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #1e5b36;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      .mensagem {
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+      }
+
+      .sucesso {
+        background: #e0f5e6;
+        color: #185b30;
+      }
+
+      .erro {
+        background: #ffebeb;
+        color: #942626;
+      }
+
+      .vazio {
+        color: #53645a;
+        padding: 0.5rem 0;
+      }
+
+      .doacao h3 {
+        margin-top: 0;
+      }
+
+      .doacao p {
+        margin: 0.4rem 0;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>Prato Cheio</h1>
+      <p class="descricao">
+        Conectando doadores de alimentos a organizações sociais.
+      </p>
+    </header>
+
+    <div
+      id="mensagem"
+      class="mensagem"
+      role="status"
+      aria-live="polite"
+      hidden
+    ></div>
+
+    <section aria-labelledby="titulo-publicar">
+      <form id="form-publicar">
+        <fieldset>
+          <legend id="titulo-publicar">Publicar doação</legend>
+
+          <label for="tipo">Tipo de alimento</label>
+          <input
+            id="tipo"
+            name="tipo"
+            placeholder="Ex.: arroz, frutas, pão"
+            required
+            maxlength="100"
+          />
+
+          <label for="quantidade">Quantidade</label>
+          <input
+            id="quantidade"
+            name="quantidade"
+            placeholder="Ex.: 10 porções"
+            required
+            maxlength="100"
+          />
+
+          <label for="validade">Validade / retirar até</label>
+          <input id="validade" name="validade" type="date" required />
+
+          <button id="botao-publicar" type="submit">Publicar doação</button>
+        </fieldset>
+      </form>
+    </section>
+
+    <section aria-labelledby="titulo-lista">
+      <h2 id="titulo-lista">Doações disponíveis</h2>
+      <ul id="lista" aria-live="polite"></ul>
+    </section>
+
+    <script>
+      const formulario = document.getElementById("form-publicar");
+      const lista = document.getElementById("lista");
+      const mensagem = document.getElementById("mensagem");
+      const botaoPublicar = document.getElementById("botao-publicar");
+
+      function mostrarMensagem(texto, tipo = "sucesso") {
+        mensagem.textContent = texto;
+        mensagem.className = `mensagem ${tipo}`;
+        mensagem.hidden = false;
+      }
+
+      function limparMensagem() {
+        mensagem.hidden = true;
+        mensagem.textContent = "";
+      }
+
+      async function requisicao(url, opcoes = {}) {
+        const resposta = await fetch(url, opcoes);
+        const dados = await resposta.json().catch(() => ({}));
+
+        if (!resposta.ok) {
+          throw new Error(
+            dados.erro || "Não foi possível concluir a operação.",
+          );
+        }
+
+        return dados;
+      }
+
+      function dataLocalHoje() {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+        const dia = String(hoje.getDate()).padStart(2, "0");
+
+        return `${ano}-${mes}-${dia}`;
+      }
+
+      async function carregar() {
+        lista.replaceChildren();
+
+        try {
+          const doacoes = await requisicao("/api/doacoes");
+
+          if (doacoes.length === 0) {
+            const item = document.createElement("li");
+            item.className = "vazio";
+            item.textContent = "Nenhuma doação disponível no momento.";
+            lista.appendChild(item);
+            return;
+          }
+
+          for (const doacao of doacoes) {
+            const item = document.createElement("li");
+            item.className = "doacao";
+
+            const titulo = document.createElement("h3");
+            titulo.textContent = doacao.tipo;
+
+            const quantidade = document.createElement("p");
+            quantidade.textContent = `Quantidade: ${doacao.quantidade}`;
+
+            const validade = document.createElement("p");
+            validade.textContent = `Validade / retirada até: ${doacao.validade}`;
+
+            const campoOng = document.createElement("input");
+            campoOng.type = "text";
+            campoOng.maxLength = 100;
+            campoOng.required = true;
+            campoOng.placeholder = "Nome da ONG";
+            campoOng.setAttribute(
+              "aria-label",
+              `Nome da ONG para aceitar a doação de ${doacao.tipo}`,
+            );
+
+            const botaoAceitar = document.createElement("button");
+            botaoAceitar.type = "button";
+            botaoAceitar.textContent = "Aceitar doação";
+
+            botaoAceitar.addEventListener("click", async () => {
+              limparMensagem();
+
+              const ong = campoOng.value.trim();
+
+              if (!ong) {
+                mostrarMensagem(
+                  "Informe o nome da ONG antes de aceitar a doação.",
+                  "erro",
+                );
+                campoOng.focus();
+                return;
+              }
+
+              botaoAceitar.disabled = true;
+
+              try {
+                await requisicao(`/api/doacoes/${doacao.id}/aceitar`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ong }),
+                });
+
+                mostrarMensagem("Doação aceita com sucesso!");
+                await carregar();
+              } catch (erro) {
+                mostrarMensagem(erro.message, "erro");
+                botaoAceitar.disabled = false;
+              }
+            });
+
+            item.append(titulo, quantidade, validade, campoOng, botaoAceitar);
+            lista.appendChild(item);
+          }
+        } catch (erro) {
+          const item = document.createElement("li");
+          item.className = "vazio";
+          item.textContent = "Não foi possível carregar as doações.";
+          lista.appendChild(item);
+          mostrarMensagem(erro.message, "erro");
+        }
+      }
+
+      formulario.addEventListener("submit", async (evento) => {
+        evento.preventDefault();
+        limparMensagem();
+
+        const tipo = document.getElementById("tipo").value.trim();
+        const quantidade = document.getElementById("quantidade").value.trim();
+        const validade = document.getElementById("validade").value;
+
+        if (!tipo || !quantidade || !validade) {
+          mostrarMensagem("Preencha todos os campos da doação.", "erro");
+          return;
+        }
+
+        if (validade <= dataLocalHoje()) {
+          mostrarMensagem("A validade deve ser uma data futura.", "erro");
+          return;
+        }
+
+        botaoPublicar.disabled = true;
+
+        try {
+          await requisicao("/api/doacoes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tipo, quantidade, validade }),
+          });
+
+          formulario.reset();
+          mostrarMensagem("Doação publicada com sucesso!");
+          await carregar();
+        } catch (erro) {
+          mostrarMensagem(erro.message, "erro");
+        } finally {
+          botaoPublicar.disabled = false;
+        }
       });
-      carregar();
-    };
 
-    carregar();
-  </script>
-</body>
+      document.getElementById("validade").min = dataLocalHoje();
+
+      carregar();
+    </script>
+  </body>
 </html>
