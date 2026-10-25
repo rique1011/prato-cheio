@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import request from 'supertest';
 import { criarApp } from '../src/app.js';
-import { migrar, limparBanco, encerrar } from '../src/db.js';
+import { migrar, limparBanco, encerrar, query } from '../src/db.js';
 
 const app = criarApp();
 
@@ -257,5 +257,75 @@ describe('confirmar a coleta de uma doação', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.erro).toContain('Apenas a ONG que aceitou');
+  });
+});
+
+
+// ==================================================
+// TESTES DO BANCO POSTGRESQL - NICHOLAS
+// ==================================================
+
+describe('banco PostgreSQL', () => {
+  beforeEach(async () => {
+    await migrar();
+    await limparBanco();
+  });
+
+  afterAll(async () => {
+    await encerrar();
+  });
+
+  // Função auxiliar para criar uma doação nos testes
+  async function criarDoacaoTeste() {
+    const res = await request(app)
+      .post('/api/doacoes')
+      .send({
+        tipo: 'Feijão',
+        quantidade: '5 kg',
+        validade: '2099-12-31'
+      });
+
+    expect(res.status).toBe(201);
+
+    return res.body;
+  }
+
+  // TESTE 1 - CONCORRÊNCIA NO ACEITE
+  it('aceita a doação uma única vez quando duas ONGs aceitam ao mesmo tempo', async () => {
+    const { id } = await criarDoacaoTeste();
+
+    // As duas requisições saem juntas, cada uma em uma conexão do pool
+    const respostas = await Promise.all([
+      request(app).post(`/api/doacoes/${id}/aceitar`).send({ ong: 'ONG A' }),
+      request(app).post(`/api/doacoes/${id}/aceitar`).send({ ong: 'ONG B' })
+    ]);
+
+    const codigos = respostas.map((res) => res.status).sort();
+
+    expect(codigos).toEqual([200, 400]);
+  });
+
+  // TESTE 2 - FORMATO DA VALIDADE (coluna DATE)
+  it('devolve a validade no formato AAAA-MM-DD, sem horário', async () => {
+    const doacao = await criarDoacaoTeste();
+
+    expect(doacao.validade).toBe('2099-12-31');
+  });
+
+  // TESTE 3 - COLUNAS PREPARADAS PARA HORA DE ACEITE E DE COLETA
+  it('cria a doação com aceita_em e coletada_em vazios', async () => {
+    const doacao = await criarDoacaoTeste();
+
+    expect(doacao).toHaveProperty('aceita_em', null);
+    expect(doacao).toHaveProperty('coletada_em', null);
+  });
+
+  // TESTE 4 - REGRA DE STATUS GARANTIDA PELO BANCO (CHECK)
+  it('o banco recusa um status fora do fluxo', async () => {
+    const { id } = await criarDoacaoTeste();
+
+    await expect(
+      query("UPDATE doacoes SET status = 'aceito' WHERE id = $1", [id])
+    ).rejects.toThrow();
   });
 });
