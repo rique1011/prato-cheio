@@ -37,7 +37,7 @@ Migrar para **PostgreSQL com `pg`**, mantendo a interface `query()` de `src/db.j
 - A futura expiração automática vai exigir transação explícita.
 
 ## Evidência
-- **PR:** _(colar o link)_
+- **PR:** https://github.com/rique1011/prato-cheio/pull/3
 - **Commits:** `158b5c6` (chore), `08d0985` (feat), `a56b0cf` (test)
 - **`npm test`:** 16 testes passando no PostgreSQL 18.6, incluindo o aceite simultâneo por duas ONGs (um 200 e um 400).
 - **App real:** doação cadastrada e aceita pela interface, gravada no PostgreSQL com `status = aceita` e `criada_em` preenchido.
