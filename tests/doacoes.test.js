@@ -329,3 +329,253 @@ describe('banco PostgreSQL', () => {
     ).rejects.toThrow();
   });
 });
+
+// ==================================================
+// TESTES DE EXPIRAÇÃO DE RESERVAS - KAUÃ
+// ==================================================
+
+describe('expiração automática de reservas - Kauã', () => {
+
+  beforeEach(async () => {
+    await migrar();
+    await limparBanco();
+  });
+
+  afterAll(async () => {
+    await encerrar();
+  });
+
+  // Cria uma doação e realiza o aceite
+  async function criarDoacaoAceita(ong = 'ONG Esperança') {
+    const criacao = await request(app)
+      .post('/api/doacoes')
+      .send({
+        tipo: 'Arroz',
+        quantidade: '10 kg',
+        validade: '2099-12-31'
+      });
+
+    expect(criacao.status).toBe(201);
+
+    const id = criacao.body.id;
+
+    const aceite = await request(app)
+      .post(`/api/doacoes/${id}/aceitar`)
+      .send({ ong });
+
+    expect(aceite.status).toBe(200);
+
+    return { id, aceite: aceite.body };
+  }
+
+  // TESTE 1 - REGISTRO DO HORÁRIO DE ACEITE
+
+  it('registra o horário quando a ONG aceita uma doação', async () => {
+    const { aceite } = await criarDoacaoAceita();
+
+    expect(aceite.status).toBe('aceita');
+    expect(aceite.aceita_em).toBeTruthy();
+  });
+
+  // TESTE 2 - RESERVA COM MENOS DE DUAS HORAS
+
+  it('mantém a reserva ativa antes de completar duas horas', async () => {
+    const { id } = await criarDoacaoAceita();
+
+    await query(
+      `
+      UPDATE doacoes
+      SET aceita_em = NOW() - INTERVAL '119 minutes'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    const lista = await request(app).get('/api/doacoes');
+
+    expect(lista.status).toBe(200);
+    expect(lista.body).toHaveLength(0);
+
+    const { rows } = await query(
+      'SELECT status FROM doacoes WHERE id = $1',
+      [id]
+    );
+
+    expect(rows[0].status).toBe('aceita');
+  });
+
+  // TESTE 3 - LIMITE EXATO DE DUAS HORAS
+
+  it('expira a reserva quando completa duas horas', async () => {
+    const { id } = await criarDoacaoAceita();
+
+    await query(
+      `
+      UPDATE doacoes
+      SET aceita_em = NOW() - INTERVAL '2 hours'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    const lista = await request(app).get('/api/doacoes');
+
+    expect(lista.status).toBe(200);
+    expect(lista.body).toHaveLength(1);
+    expect(lista.body[0].status).toBe('disponivel');
+  });
+
+  // TESTE 4 - RESERVA EXPIRADA
+
+  it('libera uma reserva que ultrapassou duas horas', async () => {
+    const { id } = await criarDoacaoAceita();
+
+    await query(
+      `
+      UPDATE doacoes
+      SET aceita_em = NOW() - INTERVAL '3 hours'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    const lista = await request(app).get('/api/doacoes');
+
+    expect(lista.status).toBe(200);
+    expect(lista.body).toHaveLength(1);
+
+    const doacao = lista.body[0];
+
+    expect(doacao.id).toBe(id);
+    expect(doacao.status).toBe('disponivel');
+    expect(doacao.ong).toBeNull();
+    expect(doacao.aceita_em).toBeNull();
+  });
+
+  // TESTE 5 - ALIMENTO VENCIDO
+
+  it('não disponibiliza novamente uma doação vencida', async () => {
+    const { id } = await criarDoacaoAceita();
+
+    await query(
+      `
+      UPDATE doacoes
+      SET
+        aceita_em = NOW() - INTERVAL '3 hours',
+        validade = CURRENT_DATE - 1
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    const lista = await request(app).get('/api/doacoes');
+
+    expect(lista.status).toBe(200);
+    expect(lista.body).toHaveLength(0);
+  });
+
+  // TESTE 6 - DOAÇÃO JÁ COLETADA
+
+  it('não libera uma doação que já foi coletada', async () => {
+    const { id } = await criarDoacaoAceita();
+
+    const coleta = await request(app)
+      .post(`/api/doacoes/${id}/coletar`)
+      .send({ ong: 'ONG Esperança' });
+
+    expect(coleta.status).toBe(200);
+    expect(coleta.body.status).toBe('coletada');
+    expect(coleta.body.coletada_em).toBeTruthy();
+
+    // Simula um aceite antigo, mesmo após a coleta
+    await query(
+      `
+      UPDATE doacoes
+      SET aceita_em = NOW() - INTERVAL '3 hours'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    const lista = await request(app).get('/api/doacoes');
+
+    expect(lista.status).toBe(200);
+    expect(lista.body).toHaveLength(0);
+
+    const { rows } = await query(
+      'SELECT status FROM doacoes WHERE id = $1',
+      [id]
+    );
+
+    expect(rows[0].status).toBe('coletada');
+  });
+
+  // TESTE 7 - COLETA FORA DO PRAZO
+
+  it('recusa a coleta quando a reserva ultrapassa duas horas', async () => {
+    const { id } = await criarDoacaoAceita();
+
+    await query(
+      `
+      UPDATE doacoes
+      SET aceita_em = NOW() - INTERVAL '3 hours'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    const coleta = await request(app)
+      .post(`/api/doacoes/${id}/coletar`)
+      .send({ ong: 'ONG Esperança' });
+
+    expect(coleta.status).toBe(400);
+    expect(coleta.body.erro).toBeDefined();
+
+    const { rows } = await query(
+      'SELECT status FROM doacoes WHERE id = $1',
+      [id]
+    );
+
+    expect(rows[0].status).not.toBe('coletada');
+  });
+
+  // TESTE 8 - ACEITE CONCORRENTE APÓS EXPIRAÇÃO
+
+  it('permite apenas um novo aceite após a reserva expirar', async () => {
+    const { id } = await criarDoacaoAceita('ONG Antiga');
+
+    await query(
+      `
+      UPDATE doacoes
+      SET aceita_em = NOW() - INTERVAL '3 hours'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    const respostas = await Promise.all([
+      request(app)
+        .post(`/api/doacoes/${id}/aceitar`)
+        .send({ ong: 'ONG A' }),
+
+      request(app)
+        .post(`/api/doacoes/${id}/aceitar`)
+        .send({ ong: 'ONG B' })
+    ]);
+
+    const codigos = respostas
+      .map((res) => res.status)
+      .sort((a, b) => a - b);
+
+    expect(codigos).toEqual([200, 400]);
+
+    const { rows } = await query(
+      'SELECT status, ong FROM doacoes WHERE id = $1',
+      [id]
+    );
+
+    expect(rows[0].status).toBe('aceita');
+    expect(['ONG A', 'ONG B']).toContain(rows[0].ong);
+  });
+
+});

@@ -1,6 +1,9 @@
 import * as repo from './repositorio.js';
 
-// Cadastrar uma nova doação
+// ==================================================
+// CADASTRAR UMA NOVA DOAÇÃO
+// ==================================================
+
 export async function criarDoacao({ tipo, quantidade, validade }) {
   const dataValidade = new Date(validade);
 
@@ -11,12 +14,23 @@ export async function criarDoacao({ tipo, quantidade, validade }) {
   return await repo.inserir({ tipo, quantidade, validade });
 }
 
-// Listar as doações disponíveis
+// ==================================================
+// LISTAR DOAÇÕES DISPONÍVEIS
+// ==================================================
+
 export async function listarDisponiveis() {
+
+  // Verifica e libera as reservas que expiraram
+  await repo.liberarReservasExpiradas();
+
+  // Retorna as doações disponíveis
   return await repo.listarDisponiveis();
 }
 
-// Aceitar uma doação
+// ==================================================
+// ACEITAR UMA DOAÇÃO
+// ==================================================
+
 export async function aceitar(id, ong) {
   const doacao = await repo.aceitar(id, ong);
 
@@ -27,7 +41,10 @@ export async function aceitar(id, ong) {
   return doacao;
 }
 
-// Confirmar a coleta de uma doação
+// ==================================================
+// CONFIRMAR A COLETA DE UMA DOAÇÃO
+// ==================================================
+
 export async function coletar(id, ong) {
 
   // Verifica se a ONG foi informada
@@ -50,7 +67,9 @@ export async function coletar(id, ong) {
 
   // Verifica se é a ONG responsável
   if (doacao.ong !== ong.trim()) {
-    throw new Error('Apenas a ONG que aceitou a doação pode confirmar a coleta.');
+    throw new Error(
+      'Apenas a ONG que aceitou a doação pode confirmar a coleta.'
+    );
   }
 
   // Confirma a coleta no banco de dados
