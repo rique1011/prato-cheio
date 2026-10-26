@@ -1,56 +1,62 @@
-// Conexão com o banco. Já vem pronto — não precisa mexer agora.
+// Conexão com o banco.
 //
-// UNIDADE 1: SQLite, embutido no Node (módulo `node:sqlite`) — nada para instalar.
-// UNIDADE 3: este arquivo será refatorado para PostgreSQL. A interface abaixo
-//            (`query` devolvendo `{ rows }`) foi desenhada para que a troca fique
-//            contida aqui, sem espalhar mudança pelo resto do código.
-// `node:sqlite` é módulo embutido do Node 22+. Carregado via createRequire porque
-// algumas ferramentas (como o Vite/Vitest) ainda não o reconhecem como embutido.
-import { createRequire } from 'node:module';
-const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
+// UNIDADE 1: SQLite, embutido no Node (módulo `node:sqlite`).
+// UNIDADE 3: migrado para PostgreSQL com o driver `pg` (ver docs/adr/0001).
+//            A interface (`query` devolvendo `{ rows }`) foi mantida, então a
+//            troca ficou contida aqui e nas consultas de repositorio.js.
+import pg from 'pg';
 
-const ARQUIVO = process.env.DATABASE_FILE || 'dados.sqlite';
+// Por padrão o `pg` converte DATE em objeto Date do JavaScript, que vira
+// "2099-12-31T03:00:00.000Z" no JSON (fuso de Brasília). Mantemos como texto
+// "2099-12-31", igual ao que a interface envia e exibe.
+const TIPO_DATE = 1082;
+pg.types.setTypeParser(TIPO_DATE, (valor) => valor);
 
-let db;
+let pool;
 
 export function conexao() {
-  if (!db) db = new DatabaseSync(ARQUIVO);
-  return db;
+  if (!pool) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL não definida. Copie .env.example para .env e preencha a senha.');
+    }
+    pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  }
+  return pool;
 }
 
 /**
  * Executa uma consulta e devolve { rows }.
- * Use `?` como marcador de parâmetro (evita injeção de SQL):
- *   query('SELECT * FROM doacoes WHERE id = ?', [id])
+ * Use $1, $2, ... como marcadores de parâmetro (evita injeção de SQL):
+ *   query('SELECT * FROM doacoes WHERE id = $1', [id])
  */
 export async function query(sql, valores = []) {
-  const stmt = conexao().prepare(sql);
-  const ehLeitura = /^\s*(select|with)/i.test(sql) || /returning/i.test(sql);
-  if (ehLeitura) return { rows: stmt.all(...valores) };
-  const info = stmt.run(...valores);
-  return { rows: [], alteradas: info.changes };
+  const resultado = await conexao().query(sql, valores);
+  return { rows: resultado.rows, alteradas: resultado.rowCount };
 }
 
 /** Cria o schema, se ainda não existir. Rodado por `npm run db:migrar` e ao subir o servidor. */
 export async function migrar() {
-  conexao().exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS doacoes (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      tipo        TEXT NOT NULL,
-      quantidade  TEXT NOT NULL,
-      validade    TEXT NOT NULL,
-      status      TEXT NOT NULL DEFAULT 'disponivel',
-      ong         TEXT,
-      criada_em   TEXT NOT NULL DEFAULT (datetime('now'))
+      id           INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      tipo         TEXT NOT NULL,
+      quantidade   TEXT NOT NULL,
+      validade     DATE NOT NULL,
+      status       TEXT NOT NULL DEFAULT 'disponivel'
+                   CHECK (status IN ('disponivel', 'aceita', 'coletada')),
+      ong          TEXT,
+      criada_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      aceita_em    TIMESTAMPTZ,
+      coletada_em  TIMESTAMPTZ
     )
   `);
 }
 
-/** Apaga todos os dados. Usado pelos testes. */
+/** Apaga todos os dados e reinicia os ids. Usado pelos testes. */
 export async function limparBanco() {
-  conexao().exec('DELETE FROM doacoes');
+  await query('TRUNCATE doacoes RESTART IDENTITY');
 }
 
 export async function encerrar() {
-  if (db) { db.close(); db = undefined; }
+  if (pool) { await pool.end(); pool = undefined; }
 }

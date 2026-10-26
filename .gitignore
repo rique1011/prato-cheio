@@ -1,9 +1,16 @@
 node_modules/
 *.log
 .DS_Store
-.env
 
-# banco local de desenvolvimento (SQLite)
+# configurações pessoais do editor
+.vscode/
+
+# variáveis de ambiente: senhas ficam só na máquina de cada um
+.env
+.env.*
+!.env.example
+
+# banco local antigo (SQLite, antes da migração para PostgreSQL)
 dados.sqlite
 dados.sqlite-journal
 

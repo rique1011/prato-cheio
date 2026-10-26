@@ -1,33 +1,37 @@
-# Prato Cheio
-
-Projeto da disciplina — Análise, Projeto e Desenvolvimento Ágil.
-Conecta doadores de alimentos excedentes a ONGs, antes que a comida se perca.
-
-> Este repositório é a base do produto que evolui nas três unidades:
-> walking skeleton (U1) → incremento guiado pelo projeto (U2) → produto refatorado (U3).
-
-## Integrantes
-- Henrique Cordeiro de Oliveira – @henriquedeoliveira101101-netizen
-- Kauã Henrique Lucindo – @lucind0
-- Nicholas Scoz dos Santos – @nicholasscoz
-- Guilherme Pietro Ruiz Costa - @GuiPRC
-
 ## Como rodar
 
-Requisito: **Node.js 22.13 ou superior**. Mais nada — o banco da Unidade 1 é SQLite, 
-embutido no próprio Node.
+Requisitos: **Node.js 22.13+** e **PostgreSQL** (testado com a versão 18).
 
-> Esta é a **stack preferencial** da disciplina. Se o seu grupo optar por outra, registre 
-o ADR de justificativa e garanta os mesmos compromissos: repositório público com CI 
-verde, rota de saúde, testes por um comando, os três comandos documentados aqui no README 
-e banco relacional migrado para PostgreSQL na Unidade 3.
+### Preparar o banco (uma vez por máquina)
+Depois de instalar o PostgreSQL, crie o usuário e os dois bancos (troque a senha):
+
+```bash
+psql -U postgres
+```
+```sql
+CREATE ROLE pratocheio WITH LOGIN PASSWORD 'sua_senha';
+CREATE DATABASE pratocheio       OWNER pratocheio;  -- desenvolvimento
+CREATE DATABASE pratocheio_teste OWNER pratocheio;  -- testes (é apagado a cada teste)
+\q
+```
+
+Copie `.env.example` para `.env` e coloque a sua senha nas duas URLs. O `.env` **não vai para o Git**.
+
+```bash
+cp .env.example .env          # no PowerShell: Copy-Item .env.example .env
+```
+
+### Comandos
 
 ```bash
 # 1. Instalar as dependências do projeto
 npm install
 
-# 2. Rodar os testes automatizados
+# 2. Rodar os testes automatizados (usam o banco pratocheio_teste)
 npm test
 
-# 3. Executar o servidor
+# 3. Executar o servidor em http://localhost:3000 (usa o banco pratocheio)
 npm start
+```
+
+A decisão de migrar do SQLite para o PostgreSQL está em [docs/adr/0001-migracao-para-postgresql.md](docs/adr/0001-migracao-para-postgresql.md).
