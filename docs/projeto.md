@@ -188,7 +188,9 @@ a necessidade de configurar processos adicionais.
 - Não existe uma rotina independente verificando reservas
   continuamente.
 
-Essa decisão deverá constar em um segundo ADR específico.
+**ADR relacionado:**
+
+`docs/adr/0002-expiracao-sob-demanda.md`
 
 ## 5. Requisitos não funcionais
 
