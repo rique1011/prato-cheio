@@ -32,12 +32,38 @@ Migrar para **PostgreSQL com `pg`**, mantendo a interface `query()` de `src/db.j
 - **Custos:** cada integrante precisa instalar o PostgreSQL e criar o `.env`, e os testes ficaram um pouco mais lentos.
 
 ## Limitações
-- O schema usa `CREATE TABLE IF NOT EXISTS`, sem ferramenta de migração versionada.
-- O CI ainda precisa de um serviço PostgreSQL configurado.
-- A futura expiração automática vai exigir transação explícita.
+
+- O schema utiliza `CREATE TABLE IF NOT EXISTS`,
+  sem uma ferramenta de migração versionada.
+- O ambiente de integração contínua ainda precisa
+  de um serviço PostgreSQL configurado.
+- A expiração de reservas foi implementada
+  posteriormente por meio de verificações sob demanda
+  e atualizações condicionais no PostgreSQL.
+- A decisão sobre a expiração está documentada
+  no ADR 0002 (`0002-expiracao-sob-demanda.md`).
 
 ## Evidência
 - **PR:** https://github.com/rique1011/prato-cheio/pull/3
 - **Commits:** `158b5c6` (chore), `08d0985` (feat), `a56b0cf` (test)
 - **`npm test`:** 16 testes passando no PostgreSQL 18.6, incluindo o aceite simultâneo por duas ONGs (um 200 e um 400).
 - **App real:** doação cadastrada e aceita pela interface, gravada no PostgreSQL com `status = aceita` e `criada_em` preenchido.
+
+### Atualização da N2 — 27/10/2026
+
+Após a integração das funcionalidades de confirmação
+de coleta e expiração de reservas, a suíte de testes
+passou a conter 24 cenários automatizados.
+
+Em 27/10/2026, Henrique Cordeiro de Oliveira
+executou `npm test` utilizando PostgreSQL 17.
+
+Resultado:
+
+- 24 testes executados.
+- 24 testes aprovados.
+- Nenhuma falha.
+
+A execução foi realizada na branch de finalização
+da documentação, baseada na versão integrada
+de entrega-2.
