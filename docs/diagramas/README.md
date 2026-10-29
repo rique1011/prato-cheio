@@ -18,33 +18,61 @@ Representa a interação entre os participantes e os componentes do sistema dura
 
 O diagrama deve mostrar uma sequência coerente com as chamadas e respostas implementadas no projeto.
 
-## Ferramenta de inteligência artificial
+## Ferramentas de inteligência artificial
 
-Ferramenta utilizada para auxiliar na elaboração dos diagramas: **[preencher com a ferramenta realmente utilizada]**.
+Foram utilizadas ferramentas de IA como apoio à
+elaboração dos diagramas.
 
-Os diagramas iniciais devem ser preservados para permitir a comparação com as versões revisadas.
+- Diagrama de Estados: ChatGPT.
+- Diagrama de Sequência: Claude Opus 5.5
+
+As versões iniciais foram preservadas para permitir
+a comparação com as versões revisadas.
 
 ## Versões dos diagramas
 
-- Diagrama de estados: versão inicial e versão final.
-- Diagrama de sequência: versão inicial e versão final.
+### Diagrama de Estados
 
-Os arquivos correspondentes devem ser identificados e mantidos nesta pasta.
+- [Versão inicial](01-estados-inicial.md)
+- [Versão final](02-estados-final.md)
+
+### Diagrama de Sequência
+
+- [Versão inicial](03-sequencia-inicial.md)
+- [Versão final](04-sequencia-final.md)
 
 ## Análise crítica
 
-A equipe deve registrar pelo menos dois problemas concretos encontrados nos diagramas iniciais. Para cada problema, apresentar:
+A comparação dos diagramas e as correções realizadas
+estão documentadas em:
 
-1. O que estava incorreto ou incompleto.
-2. Por que isso prejudicava a compreensão ou não correspondia ao sistema.
-3. Como o problema foi corrigido na versão final.
-
-As observações devem ser baseadas na comparação entre os diagramas iniciais, os diagramas finais e o código do projeto.
+[Análise crítica dos diagramas](05-analise-critica.md)
 
 ## Reflexão final
 
-O diagrama de estados pode ser especialmente útil para verificar se as mudanças de estado de uma doação representam corretamente as regras do sistema. A conclusão definitiva deve considerar os diagramas produzidos pela equipe e as decisões efetivamente analisadas.
+A reflexão da equipe está disponível em:
+
+[Reflexão final](06-reflexao-final.md)
 
 ## Participação da equipe
 
-Registrar os responsáveis pelos diagramas, pela análise crítica e pela revisão da documentação, além dos commits individuais e da revisão do pull request, conforme as orientações da atividade.
+- Henrique Cordeiro de Oliveira:
+  elaboração e revisão do Diagrama de Estados.
+
+- Nicholas Scoz dos Santos:
+  elaboração e revisão do Diagrama de Sequência.
+
+- Kauã Henrique Lucindo:
+  análise crítica dos diagramas.
+
+- Guilherme Pietro:
+  organização da documentação e reflexão final.
+
+## Pull Requests revisados
+
+- [PR #8 — Diagrama de Estados](https://github.com/rique1011/prato-cheio/pull/8)
+- [PR #9 — Diagrama de Estados final](https://github.com/rique1011/prato-cheio/pull/9)
+- [PR #10 — Diagrama de Sequência](https://github.com/rique1011/prato-cheio/pull/10)
+- [PR #11 — Análise crítica](https://github.com/rique1011/prato-cheio/pull/11)
+
+Todos os arquivos foram integrados à branch entrega-2.
