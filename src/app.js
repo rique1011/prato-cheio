@@ -53,5 +53,14 @@ export function criarApp() {
     }
   });
 
+  // Cancelar reserva ativa da ONG
+  app.post('/api/doacoes/:id/cancelar', async (req, res) => {
+    try {
+      res.json(await doacoes.cancelarReserva(req.params.id, req.body?.ong));
+    } catch (erro) {
+      res.status(400).json({ erro: erro.message });
+    }
+  });
+
   return app;
 }

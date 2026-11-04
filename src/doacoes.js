@@ -82,3 +82,20 @@ export async function coletar(id, ong) {
 
   return doacaoColetada;
 }
+// ==================================================
+// CANCELAR RESERVA DE UMA DOAÇÃO
+// ==================================================
+
+export async function cancelarReserva(id, ong) {
+  if (typeof ong !== 'string' || !ong.trim()) {
+    throw new Error('Informe o nome da ONG.');
+  }
+
+  // A validação de status, titularidade, prazo e validade é feita
+  // numa única atualização condicional, evitando corrida entre requisições.
+  const cancelada = await repo.cancelarReserva(id, ong.trim());
+  if (!cancelada) {
+    throw new Error('Reserva não encontrada, expirada ou não pertence à ONG informada.');
+  }
+  return cancelada;
+}
