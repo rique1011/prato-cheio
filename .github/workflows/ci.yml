@@ -1,0 +1,54 @@
+name: CI - testes com PostgreSQL
+
+on:
+  push:
+    branches: [atividade-3]
+  pull_request:
+    branches: [atividade-3]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: Testes automatizados (Node 22 + PostgreSQL 17)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: pratocheio
+          POSTGRES_PASSWORD: senha_ci_temporaria
+          POSTGRES_DB: pratocheio_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pratocheio -d pratocheio_teste"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://pratocheio:senha_ci_temporaria@127.0.0.1:5432/postgres
+      DATABASE_URL_TESTE: postgres://pratocheio:senha_ci_temporaria@127.0.0.1:5432/pratocheio_teste
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar migração PostgreSQL
+        run: npm run db:migrar
+
+      - name: Executar testes
+        run: npm test
