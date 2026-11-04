@@ -579,3 +579,109 @@ describe('expiração automática de reservas - Kauã', () => {
   });
 
 });
+
+// ==================================================
+// TESTES DE CANCELAMENTO DE RESERVA - ATIVIDADE 3
+// ==================================================
+
+describe('cancelamento de reserva', () => {
+  beforeEach(async () => {
+    await migrar();
+    await limparBanco();
+  });
+
+  async function reservar(ong = 'ONG Esperança') {
+    const criacao = await request(app)
+      .post('/api/doacoes')
+      .send({ tipo: 'Cestas', quantidade: '5 unidades', validade: '2099-12-31' });
+    expect(criacao.status).toBe(201);
+    const id = criacao.body.id;
+    const aceite = await request(app)
+      .post(`/api/doacoes/${id}/aceitar`)
+      .send({ ong });
+    expect(aceite.status).toBe(200);
+    return id;
+  }
+
+  it('libera uma reserva ativa da ONG correta e limpa seus dados', async () => {
+    const id = await reservar();
+    const res = await request(app)
+      .post(`/api/doacoes/${id}/cancelar`)
+      .send({ ong: 'ONG Esperança' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('disponivel');
+    expect(res.body.ong).toBeNull();
+    expect(res.body.aceita_em).toBeNull();
+    const lista = await request(app).get('/api/doacoes');
+    expect(lista.body.map(d => d.id)).toContain(id);
+  });
+
+  it('recusa cancelamento por outra ONG', async () => {
+    const id = await reservar();
+    const res = await request(app)
+      .post(`/api/doacoes/${id}/cancelar`)
+      .send({ ong: 'ONG Diferente' });
+    expect(res.status).toBe(400);
+    const { rows } = await query('SELECT status, ong FROM doacoes WHERE id = $1', [id]);
+    expect(rows[0]).toMatchObject({ status: 'aceita', ong: 'ONG Esperança' });
+  });
+
+  it('recusa cancelamento repetido', async () => {
+    const id = await reservar();
+    const primeira = await request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' });
+    const segunda = await request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' });
+    expect(primeira.status).toBe(200);
+    expect(segunda.status).toBe(400);
+  });
+
+  it('recusa cancelar doação inexistente', async () => {
+    const res = await request(app).post('/api/doacoes/999999/cancelar').send({ ong: 'ONG Esperança' });
+    expect(res.status).toBe(400);
+  });
+
+  it('recusa cancelar sem nome de ONG', async () => {
+    const id = await reservar();
+    const res = await request(app).post(`/api/doacoes/${id}/cancelar`).send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('recusa cancelar reserva expirada', async () => {
+    const id = await reservar();
+    await query(`UPDATE doacoes SET aceita_em = NOW() - INTERVAL '3 hours' WHERE id = $1`, [id]);
+    const res = await request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' });
+    expect(res.status).toBe(400);
+  });
+
+  it('recusa cancelar alimento vencido', async () => {
+    const id = await reservar();
+    await query('UPDATE doacoes SET validade = CURRENT_DATE - 1 WHERE id = $1', [id]);
+    const res = await request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' });
+    expect(res.status).toBe(400);
+  });
+
+  it('recusa cancelar uma doação já coletada', async () => {
+    const id = await reservar();
+    const coleta = await request(app).post(`/api/doacoes/${id}/coletar`).send({ ong: 'ONG Esperança' });
+    expect(coleta.status).toBe(200);
+    const res = await request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' });
+    expect(res.status).toBe(400);
+  });
+
+  it('permite que outra ONG aceite após cancelamento', async () => {
+    const id = await reservar();
+    const cancelamento = await request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' });
+    expect(cancelamento.status).toBe(200);
+    const aceite = await request(app).post(`/api/doacoes/${id}/aceitar`).send({ ong: 'ONG Nova' });
+    expect(aceite.status).toBe(200);
+    expect(aceite.body.ong).toBe('ONG Nova');
+  });
+
+  it('somente uma de duas tentativas concorrentes cancela a reserva', async () => {
+    const id = await reservar();
+    const respostas = await Promise.all([
+      request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' }),
+      request(app).post(`/api/doacoes/${id}/cancelar`).send({ ong: 'ONG Esperança' })
+    ]);
+    expect(respostas.map(r => r.status).sort()).toEqual([200, 400]);
+  });
+});

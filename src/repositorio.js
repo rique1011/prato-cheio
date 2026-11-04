@@ -126,3 +126,27 @@ export async function liberarReservasExpiradas() {
 
   return rows;
 }
+// ==================================================
+// CANCELAR RESERVA ATIVA (ATÔMICO)
+// ==================================================
+
+export async function cancelarReserva(id, ong) {
+  const { rows } = await query(
+    `
+    UPDATE doacoes
+    SET status = 'disponivel',
+        ong = NULL,
+        aceita_em = NULL
+    WHERE id = $1
+      AND status = 'aceita'
+      AND ong = $2
+      AND aceita_em IS NOT NULL
+      AND aceita_em > NOW() - INTERVAL '2 hours'
+      AND validade >= CURRENT_DATE
+    RETURNING *
+    `,
+    [id, ong]
+  );
+
+  return rows[0];
+}
