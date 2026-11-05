@@ -42,12 +42,14 @@ Isto permitia o cancelamento pela ONG errada e bloqueava a ONG correta. A mutaç
 |---|---:|---:|---|
 | Regra correta, antes da mutação | 45 | 0 | CI verde |
 | Regra invertida | **33** | **12** | CI vermelho — erro detectado |
-| Regra correta, após restaurar | A verificar no CI final | — | Aguardar validação |
+| Regra correta, após restaurar | **45** | **0** | **CI verde** |
 
 **Evidências verificáveis:**
 
 - [CI antes da inversão — 45 testes passaram](https://github.com/rique1011/prato-cheio/actions/runs/41942232156)
 - [CI com regra invertida — 33 passaram e 12 falharam](https://github.com/rique1011/prato-cheio/actions/runs/41942273502)
+- [CI após restauração — 45 testes passaram](https://github.com/rique1011/prato-cheio/actions/runs/41942418843)
+- [CI com a documentação incluída — 45 testes passaram](https://github.com/rique1011/prato-cheio/actions/runs/41942478708)
 - Commit da mutação temporária: `c27da3560970492ecb8bc150a09ea181b0ba35c9`.
 - Commit de restauração: `ada070283f90057709b26fc4debedc448cfd9d35`.
 
