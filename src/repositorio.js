@@ -139,7 +139,7 @@ export async function cancelarReserva(id, ong) {
         aceita_em = NULL
     WHERE id = $1
       AND status = 'aceita'
-      AND ong <> $2
+      AND ong = $2
       AND aceita_em IS NOT NULL
       AND aceita_em > NOW() - INTERVAL '2 hours'
       AND validade >= CURRENT_DATE
