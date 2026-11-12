@@ -3,7 +3,9 @@ import { query } from './db.js';
 // Refatoração 3: evita divergência entre os critérios de coleta e cancelamento.
 // O fragmento conserva exatamente as mesmas condições SQL, inclusive o limite de 2h.
 const CONDICAO_RESERVA_ATIVA = `
-      ${CONDICAO_RESERVA_ATIVA}`;
+      AND aceita_em IS NOT NULL
+      AND aceita_em > NOW() - INTERVAL '2 hours'
+      AND validade >= CURRENT_DATE`;
 
 
 // ==================================================
