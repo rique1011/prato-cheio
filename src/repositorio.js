@@ -2,6 +2,13 @@ import { query } from './db.js';
 
 // Refatoração 3: evita divergência entre os critérios de coleta e cancelamento.
 // O fragmento conserva exatamente as mesmas condições SQL, inclusive o limite de 2h.
+// Refatoração 4: retorna diretamente o único registro das operações por ID.
+// Conserva o comportamento undefined quando o SQL não encontra registros.
+async function primeiraLinha(sql, parametros = []) {
+  const { rows } = await query(sql, parametros);
+  return rows[0];
+}
+
 const CONDICAO_RESERVA_ATIVA = `
       AND aceita_em IS NOT NULL
       AND aceita_em > NOW() - INTERVAL '2 hours'
@@ -13,7 +20,7 @@ const CONDICAO_RESERVA_ATIVA = `
 // ==================================================
 
 export async function inserir({ tipo, quantidade, validade }) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     INSERT INTO doacoes (tipo, quantidade, validade, status)
     VALUES ($1, $2, $3, 'disponivel')
@@ -21,8 +28,6 @@ export async function inserir({ tipo, quantidade, validade }) {
     `,
     [tipo, quantidade, validade]
   );
-
-  return rows[0];
 }
 
 // ==================================================
@@ -30,7 +35,7 @@ export async function inserir({ tipo, quantidade, validade }) {
 // ==================================================
 
 export async function listarDisponiveis() {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     SELECT *
     FROM doacoes
@@ -66,8 +71,6 @@ export async function aceitar(id, ong) {
     `,
     [ong, id]
   );
-
-  return rows[0];
 }
 
 // ==================================================
@@ -75,7 +78,7 @@ export async function aceitar(id, ong) {
 // ==================================================
 
 export async function coletar(id, ong) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     UPDATE doacoes
     SET
@@ -89,8 +92,6 @@ export async function coletar(id, ong) {
     `,
     [id, ong]
   );
-
-  return rows[0];
 }
 
 // ==================================================
@@ -98,7 +99,7 @@ export async function coletar(id, ong) {
 // ==================================================
 
 export async function buscarPorId(id) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     SELECT *
     FROM doacoes
@@ -106,8 +107,6 @@ export async function buscarPorId(id) {
     `,
     [id]
   );
-
-  return rows[0];
 }
 
 // ==================================================
@@ -115,7 +114,7 @@ export async function buscarPorId(id) {
 // ==================================================
 
 export async function liberarReservasExpiradas() {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     UPDATE doacoes
     SET
@@ -151,6 +150,4 @@ export async function cancelarReserva(id, ong) {
     `,
     [id, ong]
   );
-
-  return rows[0];
 }
