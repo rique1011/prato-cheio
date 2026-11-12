@@ -51,7 +51,7 @@ Todas as refatorações se destinam a preservar o comportamento: as rotas, as me
 - **O que mudou:** `src/repositorio.js` recebeu o helper `primeiraLinha(sql, parametros = [])`, usado apenas pelas operações que retornam zero ou um registro.
 - **O que não mudou:** a função `listarDisponiveis` e a liberação de reservas expiradas **continuam retornando listas**; `undefined` continua sinalizando consulta singular sem resultado.
 - **Proteção:** teste novo `cada operação retorna a doação certa sem afetar outras doações`, além dos testes existentes de listagem, aceitação, coleta e cancelamento.
-- **Evidência:** validar no último CI do PR #15 após todas as alterações.
+- **Evidência:** [CI antes, após a terceira refatoração — 52/52](https://github.com/rique1011/prato-cheio/actions/runs/43208829768) e [CI depois da quarta refatoração corrigida — 52/52](https://github.com/rique1011/prato-cheio/actions/runs/43208984797). Uma edição intermediária extrapolou a extração para consultas em lista; foi corrigida antes da validação e não permanece na versão final.
 
 ## Revisão de código de outro grupo (etapa separada)
 
