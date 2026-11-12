@@ -1,24 +1,18 @@
 import { query } from './db.js';
 
-// Refatoração 3: evita divergência entre os critérios de coleta e cancelamento.
-// O fragmento conserva exatamente as mesmas condições SQL, inclusive o limite de 2h.
-// Refatoração 4: retorna diretamente o único registro das operações por ID.
-// Conserva o comportamento undefined quando o SQL não encontra registros.
-async function primeiraLinha(sql, parametros = []) {
-  const { rows } = await query(sql, parametros);
-  return rows[0];
-}
-
+// Refatoração 3: um só predicado para as operações sobre reservas ativas.
 const CONDICAO_RESERVA_ATIVA = `
       AND aceita_em IS NOT NULL
       AND aceita_em > NOW() - INTERVAL '2 hours'
       AND validade >= CURRENT_DATE`;
 
+// Refatoração 4: eliminar repetição ao retornar a primeira linha de consultas.
+async function primeiraLinha(sql, parametros = []) {
+  const { rows } = await query(sql, parametros);
+  return rows[0];
+}
 
-// ==================================================
 // CADASTRAR UMA NOVA DOAÇÃO
-// ==================================================
-
 export async function inserir({ tipo, quantidade, validade }) {
   return await primeiraLinha(
     `
@@ -30,12 +24,9 @@ export async function inserir({ tipo, quantidade, validade }) {
   );
 }
 
-// ==================================================
 // LISTAR DOAÇÕES DISPONÍVEIS
-// ==================================================
-
 export async function listarDisponiveis() {
-  return await primeiraLinha(
+  const { rows } = await query(
     `
     SELECT *
     FROM doacoes
@@ -48,16 +39,12 @@ export async function listarDisponiveis() {
   return rows;
 }
 
-// ==================================================
 // ACEITAR UMA DOAÇÃO
-// ==================================================
-
 export async function aceitar(id, ong) {
-
-  // Libera reservas expiradas antes de tentar um novo aceite
+  // Libera reservas expiradas antes de tentar um novo aceite.
   await liberarReservasExpiradas();
 
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     UPDATE doacoes
     SET
@@ -73,10 +60,7 @@ export async function aceitar(id, ong) {
   );
 }
 
-// ==================================================
 // CONFIRMAR A COLETA DE UMA DOAÇÃO
-// ==================================================
-
 export async function coletar(id, ong) {
   return await primeiraLinha(
     `
@@ -94,10 +78,7 @@ export async function coletar(id, ong) {
   );
 }
 
-// ==================================================
 // BUSCAR UMA DOAÇÃO PELO ID
-// ==================================================
-
 export async function buscarPorId(id) {
   return await primeiraLinha(
     `
@@ -109,12 +90,9 @@ export async function buscarPorId(id) {
   );
 }
 
-// ==================================================
-// EXPIRAÇÃO AUTOMÁTICA DE RESERVAS - KAUÃ
-// ==================================================
-
+// EXPIRAÇÃO AUTOMÁTICA DE RESERVAS — KAUÃ
 export async function liberarReservasExpiradas() {
-  return await primeiraLinha(
+  const { rows } = await query(
     `
     UPDATE doacoes
     SET
@@ -131,17 +109,16 @@ export async function liberarReservasExpiradas() {
 
   return rows;
 }
-// ==================================================
-// CANCELAR RESERVA ATIVA (ATÔMICO)
-// ==================================================
 
+// CANCELAR RESERVA ATIVA (ATÔMICO)
 export async function cancelarReserva(id, ong) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     UPDATE doacoes
-    SET status = 'disponivel',
-        ong = NULL,
-        aceita_em = NULL
+    SET
+      status = 'disponivel',
+      ong = NULL,
+      aceita_em = NULL
     WHERE id = $1
       AND status = 'aceita'
       AND ong = $2
