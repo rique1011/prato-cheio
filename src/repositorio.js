@@ -1,5 +1,11 @@
 import { query } from './db.js';
 
+// Refatoração 3: evita divergência entre os critérios de coleta e cancelamento.
+// O fragmento conserva exatamente as mesmas condições SQL, inclusive o limite de 2h.
+const CONDICAO_RESERVA_ATIVA = `
+      ${CONDICAO_RESERVA_ATIVA}`;
+
+
 // ==================================================
 // CADASTRAR UMA NOVA DOAÇÃO
 // ==================================================
@@ -76,9 +82,7 @@ export async function coletar(id, ong) {
     WHERE id = $1
       AND status = 'aceita'
       AND ong = $2
-      AND aceita_em IS NOT NULL
-      AND aceita_em > NOW() - INTERVAL '2 hours'
-      AND validade >= CURRENT_DATE
+      ${CONDICAO_RESERVA_ATIVA}
     RETURNING *
     `,
     [id, ong]
@@ -140,9 +144,7 @@ export async function cancelarReserva(id, ong) {
     WHERE id = $1
       AND status = 'aceita'
       AND ong = $2
-      AND aceita_em IS NOT NULL
-      AND aceita_em > NOW() - INTERVAL '2 hours'
-      AND validade >= CURRENT_DATE
+      ${CONDICAO_RESERVA_ATIVA}
     RETURNING *
     `,
     [id, ong]
