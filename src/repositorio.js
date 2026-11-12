@@ -1,11 +1,20 @@
 import { query } from './db.js';
 
-// ==================================================
-// CADASTRAR UMA NOVA DOAÇÃO
-// ==================================================
+// Refatoração 3: um só predicado para as operações sobre reservas ativas.
+const CONDICAO_RESERVA_ATIVA = `
+      AND aceita_em IS NOT NULL
+      AND aceita_em > NOW() - INTERVAL '2 hours'
+      AND validade >= CURRENT_DATE`;
 
+// Refatoração 4: eliminar repetição ao retornar a primeira linha de consultas.
+async function primeiraLinha(sql, parametros = []) {
+  const { rows } = await query(sql, parametros);
+  return rows[0];
+}
+
+// CADASTRAR UMA NOVA DOAÇÃO
 export async function inserir({ tipo, quantidade, validade }) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     INSERT INTO doacoes (tipo, quantidade, validade, status)
     VALUES ($1, $2, $3, 'disponivel')
@@ -13,14 +22,9 @@ export async function inserir({ tipo, quantidade, validade }) {
     `,
     [tipo, quantidade, validade]
   );
-
-  return rows[0];
 }
 
-// ==================================================
 // LISTAR DOAÇÕES DISPONÍVEIS
-// ==================================================
-
 export async function listarDisponiveis() {
   const { rows } = await query(
     `
@@ -35,16 +39,12 @@ export async function listarDisponiveis() {
   return rows;
 }
 
-// ==================================================
 // ACEITAR UMA DOAÇÃO
-// ==================================================
-
 export async function aceitar(id, ong) {
-
-  // Libera reservas expiradas antes de tentar um novo aceite
+  // Libera reservas expiradas antes de tentar um novo aceite.
   await liberarReservasExpiradas();
 
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     UPDATE doacoes
     SET
@@ -58,16 +58,11 @@ export async function aceitar(id, ong) {
     `,
     [ong, id]
   );
-
-  return rows[0];
 }
 
-// ==================================================
 // CONFIRMAR A COLETA DE UMA DOAÇÃO
-// ==================================================
-
 export async function coletar(id, ong) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     UPDATE doacoes
     SET
@@ -76,23 +71,16 @@ export async function coletar(id, ong) {
     WHERE id = $1
       AND status = 'aceita'
       AND ong = $2
-      AND aceita_em IS NOT NULL
-      AND aceita_em > NOW() - INTERVAL '2 hours'
-      AND validade >= CURRENT_DATE
+      ${CONDICAO_RESERVA_ATIVA}
     RETURNING *
     `,
     [id, ong]
   );
-
-  return rows[0];
 }
 
-// ==================================================
 // BUSCAR UMA DOAÇÃO PELO ID
-// ==================================================
-
 export async function buscarPorId(id) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     SELECT *
     FROM doacoes
@@ -100,14 +88,9 @@ export async function buscarPorId(id) {
     `,
     [id]
   );
-
-  return rows[0];
 }
 
-// ==================================================
-// EXPIRAÇÃO AUTOMÁTICA DE RESERVAS - KAUÃ
-// ==================================================
-
+// EXPIRAÇÃO AUTOMÁTICA DE RESERVAS — KAUÃ
 export async function liberarReservasExpiradas() {
   const { rows } = await query(
     `
@@ -126,27 +109,22 @@ export async function liberarReservasExpiradas() {
 
   return rows;
 }
-// ==================================================
-// CANCELAR RESERVA ATIVA (ATÔMICO)
-// ==================================================
 
+// CANCELAR RESERVA ATIVA (ATÔMICO)
 export async function cancelarReserva(id, ong) {
-  const { rows } = await query(
+  return await primeiraLinha(
     `
     UPDATE doacoes
-    SET status = 'disponivel',
-        ong = NULL,
-        aceita_em = NULL
+    SET
+      status = 'disponivel',
+      ong = NULL,
+      aceita_em = NULL
     WHERE id = $1
       AND status = 'aceita'
       AND ong = $2
-      AND aceita_em IS NOT NULL
-      AND aceita_em > NOW() - INTERVAL '2 hours'
-      AND validade >= CURRENT_DATE
+      ${CONDICAO_RESERVA_ATIVA}
     RETURNING *
     `,
     [id, ong]
   );
-
-  return rows[0];
 }

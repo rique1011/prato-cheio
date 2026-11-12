@@ -1,66 +1,53 @@
 import express from 'express';
 import * as doacoes from './doacoes.js';
 
+// Refatoração 1: tratamento uniforme dos erros assíncronos nas rotas.
+// Mantém os mesmos status HTTP, JSON e mensagens observáveis.
+function responderOperacao(operacao, statusSucesso = 200) {
+  return async (req, res) => {
+    try {
+      const resultado = await operacao(req);
+      res.status(statusSucesso).json(resultado);
+    } catch (erro) {
+      res.status(400).json({ erro: erro.message });
+    }
+  };
+}
+
 export function criarApp() {
   const app = express();
 
   app.use(express.json());
   app.use(express.static('public'));
 
-  // Verificação de saúde da aplicação
   app.get('/api/saude', (req, res) => {
     res.json({ ok: true });
   });
 
-  // Listar doações disponíveis
-  app.get('/api/doacoes', async (req, res) => {
-    try {
-      res.json(await doacoes.listarDisponiveis());
-    } catch (erro) {
-      res.status(400).json({ erro: erro.message });
-    }
-  });
+  app.get(
+    '/api/doacoes',
+    responderOperacao(() => doacoes.listarDisponiveis())
+  );
 
-  // Cadastrar uma nova doação
-  app.post('/api/doacoes', async (req, res) => {
-    try {
-      res.status(201).json(await doacoes.criarDoacao(req.body));
-    } catch (erro) {
-      res.status(400).json({ erro: erro.message });
-    }
-  });
+  app.post(
+    '/api/doacoes',
+    responderOperacao((req) => doacoes.criarDoacao(req.body), 201)
+  );
 
-  // Aceitar uma doação
-  app.post('/api/doacoes/:id/aceitar', async (req, res) => {
-    try {
-      res.json(await doacoes.aceitar(req.params.id, req.body?.ong ?? 'ONG'));
-    } catch (erro) {
-      res.status(400).json({ erro: erro.message });
-    }
-  });
+  app.post(
+    '/api/doacoes/:id/aceitar',
+    responderOperacao((req) => doacoes.aceitar(req.params.id, req.body?.ong ?? 'ONG'))
+  );
 
-  // Confirmar a coleta de uma doação
-  app.post('/api/doacoes/:id/coletar', async (req, res) => {
-    try {
-      const doacaoColetada = await doacoes.coletar(
-        req.params.id,
-        req.body?.ong
-      );
+  app.post(
+    '/api/doacoes/:id/coletar',
+    responderOperacao((req) => doacoes.coletar(req.params.id, req.body?.ong))
+  );
 
-      res.json(doacaoColetada);
-    } catch (erro) {
-      res.status(400).json({ erro: erro.message });
-    }
-  });
-
-  // Cancelar reserva ativa da ONG
-  app.post('/api/doacoes/:id/cancelar', async (req, res) => {
-    try {
-      res.json(await doacoes.cancelarReserva(req.params.id, req.body?.ong));
-    } catch (erro) {
-      res.status(400).json({ erro: erro.message });
-    }
-  });
+  app.post(
+    '/api/doacoes/:id/cancelar',
+    responderOperacao((req) => doacoes.cancelarReserva(req.params.id, req.body?.ong))
+  );
 
   return app;
 }

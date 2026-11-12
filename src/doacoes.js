@@ -1,5 +1,15 @@
 import * as repo from './repositorio.js';
 
+// Refatoração 2: validação e normalização reutilizadas nas duas operações da ONG.
+function normalizarOng(ong) {
+  if (typeof ong !== 'string' || !ong.trim()) {
+    throw new Error('Informe o nome da ONG.');
+  }
+  return ong.trim();
+}
+
+
+
 // ==================================================
 // CADASTRAR UMA NOVA DOAÇÃO
 // ==================================================
@@ -46,11 +56,7 @@ export async function aceitar(id, ong) {
 // ==================================================
 
 export async function coletar(id, ong) {
-
-  // Verifica se a ONG foi informada
-  if (typeof ong !== 'string' || !ong.trim()) {
-    throw new Error('Informe o nome da ONG.');
-  }
+  const ongNormalizada = normalizarOng(ong);
 
   // Busca a doação pelo ID
   const doacao = await repo.buscarPorId(id);
@@ -66,14 +72,14 @@ export async function coletar(id, ong) {
   }
 
   // Verifica se é a ONG responsável
-  if (doacao.ong !== ong.trim()) {
+  if (doacao.ong !== ongNormalizada) {
     throw new Error(
       'Apenas a ONG que aceitou a doação pode confirmar a coleta.'
     );
   }
 
   // Confirma a coleta no banco de dados
-  const doacaoColetada = await repo.coletar(id, ong.trim());
+  const doacaoColetada = await repo.coletar(id, ongNormalizada);
 
   // Verifica se a atualização foi realizada
   if (!doacaoColetada) {
@@ -87,13 +93,11 @@ export async function coletar(id, ong) {
 // ==================================================
 
 export async function cancelarReserva(id, ong) {
-  if (typeof ong !== 'string' || !ong.trim()) {
-    throw new Error('Informe o nome da ONG.');
-  }
+  const ongNormalizada = normalizarOng(ong);
 
   // A validação de status, titularidade, prazo e validade é feita
   // numa única atualização condicional, evitando corrida entre requisições.
-  const cancelada = await repo.cancelarReserva(id, ong.trim());
+  const cancelada = await repo.cancelarReserva(id, ongNormalizada);
   if (!cancelada) {
     throw new Error('Reserva não encontrada, expirada ou não pertence à ONG informada.');
   }
