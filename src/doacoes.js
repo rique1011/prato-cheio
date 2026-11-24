@@ -14,14 +14,24 @@ function normalizarOng(ong) {
 // CADASTRAR UMA NOVA DOAÇÃO
 // ==================================================
 
-export async function criarDoacao({ tipo, quantidade, validade }) {
-  const dataValidade = new Date(validade);
+export async function criarDoacao({ tipo, quantidade, validade } = {}) {
+  const nome = typeof tipo === 'string' ? tipo.trim() : '';
+  const volume = typeof quantidade === 'string' ? quantidade.trim()
+    : typeof quantidade === 'number' && Number.isFinite(quantidade) ? String(quantidade) : '';
 
-  if (isNaN(dataValidade.getTime()) || dataValidade <= new Date()) {
+  if (!nome || !volume || nome.includes('\0') || volume.includes('\0')) {
+    throw new Error('Informe o tipo e a quantidade da doação.');
+  }
+
+  const dataValidade = typeof validade === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(validade)
+    ? new Date(validade + 'T00:00:00Z') : new Date(NaN);
+  if (isNaN(dataValidade.getTime()) ||
+      dataValidade.toISOString().slice(0, 10) !== validade ||
+      dataValidade <= new Date()) {
     throw new Error('Validade deve ser uma data futura.');
   }
 
-  return await repo.inserir({ tipo, quantidade, validade });
+  return await repo.inserir({ tipo: nome, quantidade: volume, validade });
 }
 
 // ==================================================
@@ -41,8 +51,13 @@ export async function listarDisponiveis() {
 // ACEITAR UMA DOAÇÃO
 // ==================================================
 
+export async function listarReservadas() {
+  await repo.liberarReservasExpiradas();
+  return await repo.listarReservadas();
+}
+
 export async function aceitar(id, ong) {
-  const doacao = await repo.aceitar(id, ong);
+  const doacao = await repo.aceitar(id, normalizarOng(ong));
 
   if (!doacao) {
     throw new Error('Doação já foi aceita por outra ONG ou não existe.');

@@ -84,6 +84,12 @@
         background: #1e5b36;
       }
 
+      button.secundario {
+        background: white;
+        color: #275f3d;
+        border: 1px solid #287647;
+      }
+
       button:disabled {
         opacity: 0.6;
         cursor: wait;
@@ -176,9 +182,17 @@
       <ul id="lista" aria-live="polite"></ul>
     </section>
 
+    <section aria-labelledby="titulo-reservas">
+      <h2 id="titulo-reservas">Reservas ativas</h2>
+      <p>Confirme a coleta ou cancele a reserva informando a ONG responsável.</p>
+      <ul id="reservas" aria-live="polite"></ul>
+    </section>
+    <p class="descricao">Protótipo acadêmico: a identificação é pelo nome da ONG, sem login. Reservas expiram após duas horas e são verificadas ao atualizar as listas.</p>
+
     <script>
       const formulario = document.getElementById("form-publicar");
       const lista = document.getElementById("lista");
+      const reservas = document.getElementById("reservas");
       const mensagem = document.getElementById("mensagem");
       const botaoPublicar = document.getElementById("botao-publicar");
 
@@ -215,7 +229,7 @@
         return `${ano}-${mes}-${dia}`;
       }
 
-      async function carregar() {
+      async function carregarDisponiveis() {
         lista.replaceChildren();
 
         try {
@@ -297,6 +311,77 @@
           lista.appendChild(item);
           mostrarMensagem(erro.message, "erro");
         }
+      }
+
+      async function carregarReservas() {
+        reservas.replaceChildren();
+        try {
+          const doacoes = await requisicao("/api/doacoes/reservadas");
+          if (doacoes.length === 0) {
+            const vazio = document.createElement("li");
+            vazio.className = "vazio";
+            vazio.textContent = "Nenhuma reserva ativa.";
+            reservas.appendChild(vazio);
+            return;
+          }
+          for (const doacao of doacoes) {
+            const item = document.createElement("li");
+            item.className = "doacao";
+            const titulo = document.createElement("h3");
+            titulo.textContent = doacao.tipo;
+            const detalhes = document.createElement("p");
+            detalhes.textContent = `Quantidade: ${doacao.quantidade} | ONG responsável: ${doacao.ong} | Validade: ${doacao.validade}`;
+            const campo = document.createElement("input");
+            campo.placeholder = "Nome da ONG responsável";
+            campo.setAttribute("aria-label", `ONG responsável pela reserva de ${doacao.tipo}`);
+            campo.maxLength = 100;
+            const coletar = document.createElement("button");
+            coletar.type = "button";
+            coletar.textContent = "Confirmar coleta";
+            const cancelar = document.createElement("button");
+            cancelar.type = "button";
+            cancelar.textContent = "Cancelar reserva";
+            cancelar.className = "secundario";
+
+            async function executar(acao, sucesso) {
+              limparMensagem();
+              const ong = campo.value.trim();
+              if (!ong) {
+                mostrarMensagem("Informe o nome da ONG responsável.", "erro");
+                campo.focus();
+                return;
+              }
+              coletar.disabled = cancelar.disabled = true;
+              try {
+                await requisicao(`/api/doacoes/${doacao.id}/${acao}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ong }),
+                });
+                mostrarMensagem(sucesso);
+                await carregar();
+              } catch (erro) {
+                mostrarMensagem(erro.message, "erro");
+                coletar.disabled = cancelar.disabled = false;
+              }
+            }
+            coletar.addEventListener("click", () => executar("coletar", "Coleta confirmada com sucesso!"));
+            cancelar.addEventListener("click", () => executar("cancelar", "Reserva cancelada. Doação disponível novamente."));
+            item.append(titulo, detalhes, campo, coletar, cancelar);
+            reservas.appendChild(item);
+          }
+        } catch (erro) {
+          const item = document.createElement("li");
+          item.textContent = "Não foi possível carregar as reservas.";
+          reservas.appendChild(item);
+          mostrarMensagem(erro.message, "erro");
+        }
+      }
+
+      // Sequencial para que a expiração sob demanda reflita nas duas listas.
+      async function carregar() {
+        await carregarReservas();
+        await carregarDisponiveis();
       }
 
       formulario.addEventListener("submit", async (evento) => {

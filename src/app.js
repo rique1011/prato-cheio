@@ -29,6 +29,11 @@ export function criarApp() {
     responderOperacao(() => doacoes.listarDisponiveis())
   );
 
+  app.get(
+    '/api/doacoes/reservadas',
+    responderOperacao(() => doacoes.listarReservadas())
+  );
+
   app.post(
     '/api/doacoes',
     responderOperacao((req) => doacoes.criarDoacao(req.body), 201)

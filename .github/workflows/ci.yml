@@ -2,9 +2,9 @@ name: CI - testes com PostgreSQL
 
 on:
   push:
-    branches: [atividade-3]
+    branches: [main, atividade-3, entrega-n3]
   pull_request:
-    branches: [atividade-3]
+    branches: [main, atividade-3]
   workflow_dispatch:
 
 permissions:
@@ -52,3 +52,18 @@ jobs:
 
       - name: Executar testes
         run: npm test
+
+      - name: Verificar servidor real e interface
+        run: |
+          npm start > servidor.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true; cat servidor.log' EXIT
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3000/api/saude; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/api/saude | grep -q '"ok":true'
+          curl -fsS http://127.0.0.1:3000/ -o interface.html
+          grep -q 'Confirmar coleta' interface.html
+          grep -q 'Cancelar reserva' interface.html
+          curl -fsS http://127.0.0.1:3000/api/doacoes/reservadas

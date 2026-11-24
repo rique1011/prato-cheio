@@ -39,6 +39,19 @@ export async function listarDisponiveis() {
   return rows;
 }
 
+// LISTAR RESERVAS ATIVAS (a UI permite confirmar coleta ou cancelar).
+export async function listarReservadas() {
+  const { rows } = await query(
+    `
+    SELECT * FROM doacoes
+    WHERE status = 'aceita'
+      ${CONDICAO_RESERVA_ATIVA}
+    ORDER BY id
+    `
+  );
+  return rows;
+}
+
 // ACEITAR UMA DOAÇÃO
 export async function aceitar(id, ong) {
   // Libera reservas expiradas antes de tentar um novo aceite.
